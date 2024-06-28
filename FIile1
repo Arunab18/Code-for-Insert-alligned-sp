@@ -1,0 +1,1246 @@
+create or replace PROCEDURE PRC_TXN_DATAPATCH_RCP (
+OUT_STATUSCODE OUT VARCHAR2 ,
+ OUT_STATUSDESC OUT VARCHAR2) IS
+P_MIGBID NUMBER;
+BEGIN
+
+SELECT VT_COB.SEQ_MIGBID.NEXTVAL INTO P_MIGBID FROM DUAL;
+
+
+
+-------------------------------STGVTSTBATCHPRCSTRN TABLE 1
+    INSERT INTO stgvtstbatchprcstrn (
+        batchrunidnew,		batchrunidold,		crtdate,		filename,
+        custidnew,			custidold,			accidnew,		accidold,
+        cifidnew,			cifidold,			statuscode,		refidnew,
+        refidold,			crtby,				crtip,			mdydate,
+		mdyby,				mdyip,				batchid,		totrecs,
+        succrecs,			failrecs,			filetype,		initchn,
+        entitytype,			orgfilename,		GCIFNO,			ACCNO,
+        LOGINID,			MDYLOGINID,			MIGSTATUSCODE,	MIGBID ,
+         MIGDATE
+    )
+       SELECT      
+	   a.prnuploadid,	a.prnuploadid,
+		TO_DATE(a.prnreqdate, 'YYYY-MM-DD HH24:MI:SS') AS prnreqdate,
+            a.filename,		a.custid,		a.custid,		a.custaccid,
+			a.custaccid,	a.cifno,		a.cifno,		a.statuscode,
+            a.tempid,		a.tempid,		a.crtby,		a.crtip,
+            a.mdydate,		a.mdyby,		a.mdyip,		'3342',
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    STGRCPWFCBKBTPRNREQCHQ
+                WHERE
+                    prnuploadid = a.prnuploadid
+            ),
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    STGRCPWFCBKBTPRNREQCHQ
+                WHERE
+                        prnuploadid = a.prnuploadid
+                    AND statuscode IN (2)
+            ),
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    STGRCPWFCBKBTPRNREQCHQ
+                WHERE
+                        prnuploadid = a.prnuploadid
+                    AND statuscode IN(3)
+            ),
+            'xlsx',		'RCP',		'C',		a.filename,
+			a.CIFNO,	a.ACCNO,	U.USERID,	U1.USERID,
+			'P',		P_MIGBID,	SYSDATE
+
+          --  TEMP.TEMPNAME
+        FROM
+            stgrcpcbkbtuploadprnreq a
+            INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U ON U.custUSERID = to_char(A.CRTBY)
+             LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U1 ON U1.CUSTUSERID =to_char(A.MDYBY)
+           --  AND a.CUSTID IN (44,52)
+             WHERE A.ISMIG ='Y';-- and a.statuscode in (1002);
+
+    ------------------------------------------------END STGVTSTBATCHPRCSTRN TABLE
+
+    ------------------------------------------------ST VTSTRCPFILEUPL 2
+/*
+    INSERT INTO stgvtstrcpfileupl (
+        prnuploadidnew,		prnuploadidold,		batchrunidnew,		batchrunidold,
+		custrefno,			chqbenname,			chqno,				chqdate,
+		chqamount,			advno,				advdate,			benfullname,
+		benaddline1,		benaddline2,		benaddline3,		benaddline4,
+		benaddline5,		email,				paydescline1,		paydescline2,
+		paydescline3,		paydescline4,		dispfullname,		cntname,
+		cntmobile,			cntperidtype,		cntperidno,			dispaddline1,
+		dispaddline2,		dispaddline3,		dispaddline4,		dispaddline5,
+		filler1,			filler2,			filler3,			filler4,
+		filler5,			filler6,			filler7,			filler8,
+		filler9,			filler10,			authdtlsid,			statuscode,
+		remarks,			crtdate,			crtby,				crtip,
+		arabicchqdate,		arabicchqamt,		parentprnreqidnew,	parentprnreqidold,
+		parentprnchqidnew,	parentprnchqidold,	ischqnoreq,			printremark,
+		failedremarks,		reprintcount,		MIGSTATUSCODE,		MIGBID,
+		MIGDATE
+
+    )
+       SELECT DISTINCT
+		re.wfprnchqid,		re.wfprnchqid,		re.prnuploadid,			re.prnuploadid,
+		re.custrefno,		e.chqbenname,		re.chqno,				-- TO_DATE(re.chqdate, 'YYYY-MM-DD HH24:MI:SS')
+		NULL AS chqdate,	re.chqamount,		re.advno,
+		TO_DATE(re.advdate, 'YYYY-MM-DD HH24:MI:SS') AS advdate,
+		re.benfullname,		re.benaddline1,		re.benaddline2,		re.benaddline3,
+		re.benaddline4,		re.benaddline5,		re.email,			re.paydescline1,
+		re.paydescline2,	re.paydescline3,	re.paydescline4,	re.dispfullname,
+		re.cntname,			re.cntmobile,		re.cntperidtype,	re.cntperidno,
+		re.dispaddline1,	re.dispaddline2,	re.dispaddline3,	re.dispaddline4,
+		re.dispaddline5,	re.filler1,			re.filler2,			re.filler3,
+		re.filler4,			re.filler5,			re.filler6,			re.filler7,
+		re.filler8,			re.filler9,			re.filler10,		re.authmatid,
+		CASE WHEN re.statuscode=2 THEN 'S' ELSE 'R' END AS statuscode,
+		to_char(re.remarks),	TO_DATE(re.crtdate, 'YYYY-MM-DD HH24:MI:SS')
+		AS crtdate,			re.crtby,			re.crtip,			null,
+		--TO_DATE(re.arabicchqdate, 'YYYY-MM-DD HH24:MI:SS') AS arabicchqdate,
+		to_char(re.arabicchqamt),	re.parentprnreqid,	re.parentprnreqid,	re.parentprnchqid,
+		re.parentprnchqid,			re.ischqnoreq,		re.printremark,		to_char(re.failedremarks),
+		re.reprintcount,			'P',				P_MIGBID,			SYSDATE
+        FROM
+            stgrcpwfcbkbtprnreqchq re
+            INNER JOIN stgrcpcbkbtuploadprnreq  lo  on re.PRNUPLOADID =lo.PRNUPLOADID
+            WHERE lo.ISMIG ='Y'  and re.statuscode=2 and lo.statuscode =1002;
+
+*/
+    -----------------------------------------------END VTSTRCPFILEUPL
+
+/*
+    INSERT INTO stgvtstrcpfileuplerr (
+         prnuploadidnew,		prnuploadidold,		batchrunidnew,		batchrunidold,
+		 custrefno,				chqbenname,			chqno,				chqdate,
+		 chqamount, 			advno, 				advdate, 			benfullname,
+		 benaddline1, 			benaddline2, 		benaddline3, 		benaddline4,
+		 benaddline5,	    	email, 				paydescline1,	    paydescline2,
+		 paydescline3, 			paydescline4, 		dispfullname, 		cntname, 
+		 cntmobile, 			cntperidtype, 		cntperidno, 		dispaddline1,
+		 dispaddline2, 			dispaddline3, 		dispaddline4, 		dispaddline5,  
+		 filler1, 				filler2, 			filler3, 			filler4,
+		 filler5, 				filler6, 			filler7, 			filler8,
+		 filler9, 				filler10, 			authdtlsid, 		statuscode,
+		 remarks, 				crtdate, 			crtby, 				crtip,
+		 arabicchqdate, 		arabicchqamt, 		parentprnreqidnew, 	parentprnreqidold,
+		 parentprnchqidnew, 	parentprnchqidold, 	ischqnoreq, 		printremark, 
+		 failedremarks, 		MIGSTATUSCODE, 		MIGBID , 			MIGDATE
+
+    )
+       SELECT	DISTINCT   re.wfprnchqid, re.wfprnchqid, re.prnuploadid, re.prnuploadid,
+					re.custrefno, re.chqbenname, re.chqno, 
+					-- TO_DATE(re.chqdate, 'YYYY-MM-DD HH24:MI:SS')
+					NULL AS chqdate, 	re.chqamount, 	re.advno, 
+					--TO_DATE(re.advdate, 'YYYY-MM-DD HH24:MI:SS') AS advdate
+					, re.advdate, 	 re.benfullname, 	re.benaddline1, 	re.benaddline2,
+					re.benaddline3,  re.benaddline4, 	re.benaddline5, 	re.email,
+					re.paydescline1, re.paydescline2, 	re.paydescline3, 	re.paydescline4,
+					re.dispfullname, re.cntname, 		re.cntmobile, 		re.cntperidtype,
+					re.cntperidno, 	 re.dispaddline1, 	re.dispaddline2, 	re.dispaddline3,
+					re.dispaddline4, re.dispaddline5, 	re.filler1, 		re.filler2,
+					re.filler3, 	 re.filler4, 		re.filler5, 		re.filler6,
+					re.filler7,		 re.filler8,		re.filler9,			re.filler10,
+					re.authmatid, 
+					CASE WHEN re.statuscode=2 THEN 'S' ELSE 'R' END AS statuscode,
+					to_char(re.remarks),
+					TO_DATE(re.crtdate, 'YYYY-MM-DD HH24:MI:SS') AS crtdate,
+					re.crtby, 	re.crtip, 	null,
+					--TO_DATE(re.arabicchqdate, 'YYYY-MM-DD HH24:MI:SS') AS arabicchqdate,
+					to_char(re.arabicchqamt),	 re.parentprnreqid,	 re.parentprnreqid,	 re.parentprnchqid,
+					re.parentprnchqid,	 re.ischqnoreq,	 re.printremark,	 to_char(re.failedremarks), 'P', 878,
+					--P_MIGBID,
+					SYSDATE 
+					FROM 
+					stgrcpwfcbkbtprnreqchq re 
+					INNER JOIN stgrcpcbkbtuploadprnreq  lo  on re.PRNUPLOADID =lo.PRNUPLOADID 
+					WHERE lo.ISMIG ='Y'  and re.statuscode<>2;-- AND   LO.statuscode in (1002);
+*/
+
+    -----------------------------------------------VTSTRCPENRICHUPL 3
+
+    INSERT INTO stgvtstrcpenrichupl (
+        		enrichuplidnew, 	enrichuplidold, 	prnuploadidnew, 	prnuploadidold,
+				enrichvalue, 		crtdate, 			crtby, 				crtip, 
+				mdydate, 			mdyby, 				mdyip, 				statuscode, 
+				statusdesc, 		encrichvalue1, 		encrichvalue2, 		encrichvalue3,
+				encrichvalue4, 		encrichvalue5, 		MIGSTATUSCODE, 		MIGBID ,
+				MIGDATE
+    )
+        SELECT 	req.prnenrichid, 	req.prnenrichid, 	req.wfprnchqid, 	req.wfprnchqid,
+		req.enrichvalue, 	TO_DATE(req.crtdate, 'YYYY-MM-DD HH24:MI:SS') AS crtdate,
+		req.crtby, 			req.crtip, 		TO_DATE(req.mdydate, 'YYYY-MM-DD HH24:MI:SS') AS mdydate,
+		req.mdyby,			req.mdyip, 		
+		CASE WHEN reqc.STATUSCODE <> '2' THEN 'R' ELSE 'S' END,
+		CASE WHEN reqc.STATUSCODE <> '2' THEN 'REJECT' ELSE 'SUCCESS' END,
+		regexp_substr(req.enrichvalue, '[^|]+', 1, 1) AS encrichvalue1,
+		regexp_substr(req.enrichvalue, '[^|]+', 1, 2) AS encrichvalue2,
+		regexp_substr(req.enrichvalue, '[^|]+', 1, 3) AS encrichvalue3,
+		regexp_substr(req.enrichvalue, '[^|]+', 1, 4) AS encrichvalue4,
+		regexp_substr(req.enrichvalue, '[^|]+', 1, 5) AS encrichvalue5,
+		'P', 	P_MIGBID, 		SYSDATE 
+		FROM stgrcpcbkbtprnreqenr req 
+		INNER JOIN stgrcpwfcbkbtprnreqchq reqc on  req.WFPRNCHQID = reqc.WFPRNCHQID 
+		INNER JOIN stgrcpcbkbtuploadprnreq  lo  on lo.PRNUPLOADID =reqc.PRNUPLOADID 
+		WHERE lo.ISMIG ='Y';-- and lo.statuscode in (1002) and reqc.statuscode=2;
+
+    -----------------------------------------------END VTSTRCPENRICHUPL
+
+    -----------------------------------------------VTSMRCPENRICHDTLS  4
+
+    INSERT INTO stgvtsmrcpenrichdtls (
+      	prnenrichidnew, 	prnenrichidold, 	prnchqidnew, 	prnchqidold,
+		prnuploadidnew, 	prnuploadidold, 	enrichvalue, 	crtdate,
+		crtby, 				crtip, 				mdydate, 		mdyby,
+		mdyip, 				encrichvalue1, 		encrichvalue2, 	encrichvalue3,
+		encrichvalue4, 		encrichvalue5, 		MIGSTATUSCODE, 	MIGBID ,
+		MIGDATE --   , --LOGINID
+    )
+        SELECT 	a.prnenrichid, 	a.prnenrichid, 	a.prnchqid, 	a.prnchqid, 
+		a.wfprnchqid, 	a.wfprnchqid, 	a.enrichvalue, 	TO_DATE(a.crtdate, 'YYYY-MM-DD HH24:MI:SS') AS crtdate,
+		a.crtby, 		a.crtip, 		TO_DATE(a.mdydate, 'YYYY-MM-DD HH24:MI:SS') AS mdydate,
+		a.mdyby, 		a.mdyip, 		
+		regexp_substr(a.enrichvalue, '[^|]+', 1, 1) AS encrichvalue1,
+		regexp_substr(a.enrichvalue, '[^|]+', 1, 2) AS encrichvalue2,
+		regexp_substr(a.enrichvalue, '[^|]+', 1, 3) AS encrichvalue3,
+		regexp_substr(a.enrichvalue, '[^|]+', 1, 4) AS encrichvalue4,
+		regexp_substr(a.enrichvalue, '[^|]+', 1, 5) AS encrichvalue5,
+		'P', 	P_MIGBID, 		SYSDATE 
+		--, -- U.USERID 
+		FROM stgrcpcbkbtprnreqenr a 
+		INNER JOIN stgrcpwfcbkbtprnreqchq reqc on  a.WFPRNCHQID = reqc.WFPRNCHQID 
+		INNER JOIN stgrcpcbkbtuploadprnreq  lo  on lo.PRNUPLOADID =reqc.PRNUPLOADID 
+		WHERE lo.ISMIG ='Y';--   and lo.statuscode in (1002) and reqc.statuscode=2;
+
+    ------------------------------------------------END VTSMRCPENRICHDTLS
+    ------------------------------------------------VTSTRCPDEBATCH 5
+
+    INSERT INTO stgvtstrcpdebatch (
+        debatchidnew,	  	debatchidold,	 	batchrunidnew,	 	batchrunidold,
+		prnreqdate,	  	filename,		 	custidnew,		 	custidold,
+		cifno,			  	custaccidnew,	 	custaccidold,	 	accno,
+		printtype,		  	printloctype,	 	totchq,		 	 	totsuccchq,
+		totfailchq,	  	totamount,		 	totsuccamount,	 	totfailamount,
+		verifierappflag, 	verifiercustuserid, verifierdate, 	 	verifierremarks,
+		sign1group, 		sign1appflag, 		sign1custuserid, 	sign1appdate,
+		sign1appremarks, 	sign2group, 		sign2appflag, 	 	sign2custuserid,
+		sign2appdate, 		sign2appremarks, 	sign3group, 	 	sign3appflag,
+		sign3custuserid, 	sign3appdate, 		sign3appremarks, 	custcntname, 
+		custcntmobile, 	custaddline1, 		custaddline2, 	 	custaddline3,
+		custaddline4, 		custaddline5, 		custcntemail, 	 	chqfilename,
+		downchqflag, 		invfilename, 		downinvflag, 	 	dispcompstatus,
+		serviceproduct, 	cutoffstatus, 		tempid,			 	reprint,
+		viewpdf, 			viewpdffilename, 	notetoapp, 		 	appremarks,
+		statuscode, 		crtdate, 			crtby, 			 	crtip,
+		mdydate, 			mdyby, 				mdyip, 			 	appdate,
+		appby, 			appip, 				orgprnreqid, 	 	verifierappflag2,
+		verifieruserid2, 	verifierdate2, 		verifierremarks2, 	verifierappflag3,
+		verifieruserid3, 	verifierdate3, 		verifierremarks3, 	verifierappflag4,
+		verifieruserid4,	verifierdate4, 		verifierremarks4, 	verifierappflag5,
+		verifieruserid5, 	verifierdate5, 		verifierremarks5, 	totholdchq,
+		totholdamount, 	ispartialverify, 	ispartialapprove, 	ispartialprint,
+		ischargeposted, 	authdtlsid, 		LOGINID, 			MDYLOGINID,
+		APPLOGINID,		VLOGINID1, 			SIGNLOGINID1, 		SIGNLOGINID2,
+		SIGNLOGINID3, 		MIGSTATUSCODE, 		MIGBID , 			MIGDATE
+    )
+        SELECT VTSTRCPDEBATCH_DEBATCHID_SEQ.NEXTVAL, 	a.prnreqid, 	a.prnuploadid, 	a.prnuploadid,
+		TO_DATE(a.prnreqdate, 'YYYY-MM-DD HH24:MI:SS') AS prnreqdate,
+		a.filename, 	a.custid, 			a.custid, 			a.cifno,
+		a.custaccid, 	a.custaccid, 		a.accno, 			a.printtype,
+		a.printloctype, a.totchq, 			a.totsuccchq, 		a.totfailchq,
+		a.totamount, 	a.totsuccamount, 	a.totfailamount,	a.verifierappflag,
+		a.verifieruserid, 	TO_DATE(a.verifierdate, 'YYYY-MM-DD HH24:MI:SS') AS verifierdate,
+		a.verifierremarks,
+		( SELECT b.groupcode FROM VT_COB.migvtcmcustauthalias_rcp b WHERE b.gcifno = a.cifno AND a.custid = b.custid AND to_char(a.sign1group) = b.groupcodedesc ) AS sign1group,
+		a.sign1appflag, 	a.sign1subuserid, 
+		TO_DATE(a.sign1date, 'YYYY-MM-DD HH24:MI:SS') AS sign1date,
+		a.sign1appremark,
+		( SELECT b.groupcode FROM VT_COB.migvtcmcustauthalias_rcp b WHERE b.gcifno = a.cifno AND a.custid = b.custid AND to_char(a.sign2group) = b.groupcodedesc ) AS sign2group,
+		a.sign2appflag, 	a.sign2subuserid,
+		TO_DATE(a.sign2date, 'YYYY-MM-DD HH24:MI:SS') AS sign2date, 
+		a.sign2appremark,
+		( SELECT b.groupcode FROM VT_COB.migvtcmcustauthalias_rcp b WHERE b.gcifno = a.cifno AND a.custid = b.custid AND to_char(a.sign3group) = b.groupcodedesc ) AS sign3group,
+		a.sign3appflag,		 a.sign3subuserid, 
+		TO_DATE(a.sign3date, 'YYYY-MM-DD HH24:MI:SS') AS sign3date,
+		a.sign3appremark,	 a.custcntname,	 a.custcntmobile,	 a.custaddline1,	 a.custaddline2,
+		a.custaddline3, 	 a.custaddline4, a.custaddline5, 	 a.custcntemail, 	 a.chqfilename,
+		a.downcheqflag, 	 a.invcfilename, a.downinvcflag, 	 a.dispcompstatus,   a.serviceproduct,
+		a.cutoffstatus, 	 a.tempid, 		 a.reprint, 		 a.viewpdf, 		 a.viewpdffilename,
+		a.notetoapp, 		 a.appremark, 	 a.statuscode,
+		TO_DATE(a.crtdate, 'YYYY-MM-DD HH24:MI:SS') AS crtdate,
+		a.crtby,	 a.crtip,	 TO_DATE(a.mdydate, 'YYYY-MM-DD HH24:MI:SS') AS mdydate,
+		a.mdyby, 	 a.mdyip, 	 TO_DATE(a.appdate, 'YYYY-MM-DD HH24:MI:SS') AS appdate,
+		a.appby, 	 a.appip, 	 a.orgprnreqid, 	a.verifierappflag2,
+		a.verifieruserid2, TO_DATE(a.verifierdate2, 'YYYY-MM-DD HH24:MI:SS') AS verifierdate2,
+		a.verifierremarks2, 	a.verifierappflag3, 	a.verifieruserid3, 
+		TO_DATE(a.verifierdate3, 'YYYY-MM-DD HH24:MI:SS') AS verifierdate3,
+		verifierremarks3, 	verifierappflag4, 	verifieruserid4, 
+		TO_DATE(verifierdate4, 'YYYY-MM-DD HH24:MI:SS') AS verifierdate4,
+		a.verifierremarks4, 	a.verifierappflag5, 	a.verifieruserid5,
+		TO_DATE(a.verifierdate5, 'YYYY-MM-DD HH24:MI:SS') AS verifierdate5,
+		a.verifierremarks5, 	a.totholdchq, 	a.totholdamount, 	a.ispartialverify,
+		a.ispartialapprove, 	a.ispartialprint, a.ischargeposted, '', 
+		U.USERID, 				U5.USERID, 		 U6.USERID, U4.USERID,
+		U1.USERID, 				U2.USERID, 		 U3.USERID, 'P', 
+		P_MIGBID, SYSDATE
+        FROM
+            stgrcpcbkbtprnreq a
+           INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U ON U.custUSERID = to_char(A.CRTBY)
+            LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U1 ON U1.custUSERID = to_char(A.sign1subuserid)
+            LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U2 ON U2.custUSERID =  to_char(A.sign2subuserid)
+            LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U3 ON U3.custUSERID =  to_char(A.sign3subuserid)
+            LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U4 ON U4.custUSERID =  to_char(A.VERIFIERUSERID)
+            LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U5 ON U5.custUSERID =  to_char(A.MDYBY)
+            LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U6 ON U6.custUSERID =  to_char(A.APPBY)
+            WHERE a.statuscode IN (1190,1200,1004,1005)
+            and a.ISMIG ='Y' and a.printtype =2 and  a.printloctype=2;
+--            INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U7 ON U1.USERID = A.verifieruserid2
+--            INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U8 ON U1.USERID = A.verifieruserid3
+--            INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U9 ON U1.USERID = A.verifieruserid4
+--            INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U10 ON U1.USERID = A.verifieruserid5
+
+    -------------------------------------------------END VTSTRCPDEBATCH
+    ---------------------------------------------------VTSTRCPSUBDEBATCH 6  WRONG TABLE 
+
+    INSERT INTO stgvtstrcpsubdebatch (
+         subdebatchidnew, 	batchrunidnew, 		batchrunidold, 		parentdebatchid,
+		 childdebatchidnew, childdebatchidold, 	seqno, 				debatchby,
+		 debatchdate, 		MIGSTATUSCODE, 		MIGBID , 			MIGDATE
+    )
+        SELECT
+            vtstrcpsubdebatchid_seq.NEXTVAL as,		prnuploadid,		prnuploadid,		parentdebatchid,
+            childdebatchid,		childdebatchid,		seqno,				crtby,
+           TO_DATE(crtdate, 'YYYY-MM-DD HH24:MI:SS')
+                             AS crtdate,
+           'P',		P_MIGBID,	SYSDATE
+        FROM
+            (
+                SELECT	prnuploadid,	nvl(orgprnreqid, prnreqid) AS parentdebatchid,
+                    CASE
+                        WHEN orgprnreqid IS NULL THEN
+                            NULL
+                        ELSE
+                            prnreqid
+                    END                        AS childdebatchid,
+                    ROW_NUMBER()	OVER(PARTITION BY prnuploadid	ORDER BY	prnreqid) AS seqno,
+                    crtby, crtdate
+                FROM stgrcpcbkbtprnreq
+                WHERE statuscode IN (1190,1200,1004,1005)  
+                and ISMIG ='Y'
+                ORDER BY prnreqid
+            ) a;
+
+    ---------------------------------------------------END VTSTRCPSUBDEBATCH 
+
+    ---------------------------------------------------VTSMRCPCHQDTLS  7
+
+    INSERT INTO stgvtsmrcpchqdtls (
+    prnchqidnew, 		prnchqidold, 		prnuploadidnew, 		prnuploadidold,
+	debatchidnew, 		debatchidold, 		advno, 					advdate,
+	custrefno, 			chqno, 				chqdate, 				chqamount, 
+	chqbenname, 		benfullname, 		email, 					benaddline1,
+	benaddline2, 		benaddline3, 		benaddline4, 			benaddline5, 
+	paydescline1, 		paydescline2, 		paydescline3, 			paydescline4,
+	cntperidtype, 		cntperidno, 		cntname, 				cntmobile,
+	dispaddline1, 		dispaddline2, 		dispaddline3, 			dispaddline4, 
+	dispaddline5, 		filler1, 			filler2, 				filler3,
+	filler4, 			filler5, 			filler6, 				filler7,
+	filler8, 			filler9, 			filler10, 				signuserid1,
+	custuserid1, 		signuserid2, 		custuserid2, 			signuserid3,
+	custuserid3, 		dispfullname, 		dispid, 				printremark,
+	failedremarks, 		statuscode, 		stopstatus, 			micr,
+	ppstatus, 			clrchqstatus, 		clrchqdate, 			chqissuedate,
+	crtdate, 			crtby, 				crtip, 					mdydate,
+	mdyby, 				mdyip, 				recordremarks, 			levelofrejection, 
+	ischqclr, 			arabicchqdate, 		arabicchqamt, 			chqstatust24, 
+	parentprnreqid, 	parentprnchqid, 	ischqnoreq, 			reprintcount,
+	rejectedby, 		verrejuser1, 		verrejdate1, 			verrejremarks1, 
+	verrejuser2, 		verrejdate2, 		verrejremarks2, 		verrejuser3, 
+	verrejdate3, 		verrejremarks3, 	verrejuser4, 			verrejdate4, 
+	verrejremarks4, 	verrejuser5, 		verrejdate5, 			verrejremarks5,
+	printholdby, 		deleteby, 			deleteremarks, 			printholdusertype,
+	LOGINID, 			MDYLOGINID, 		MIGSTATUSCODE, 			MIGBID ,
+	MIGDATE --        , --        APPLOGINID
+    )
+        SELECT
+            prnchqidnew, 		prnchqidold, 		prnuploadidnew, 		prnuploadidold,
+debatchidnew, 		debatchidold, 		advno, 					advdate,
+custrefno, 			chqno, 				chqdate, 				chqamount,
+chqbenname, 		benfullname, 		email, 					benaddline1,
+benaddline2, 		benaddline3, 		benaddline4, 			benaddline5,
+paydescline1, 		paydescline2, 		paydescline3, 			paydescline4,
+cntperidtype, 		cntperidno, 		cntname, 				cntmobile, 
+dispaddline1, 		dispaddline2, 		dispaddline3, 			dispaddline4,
+dispaddline5, 		filler1, 			filler2, 				filler3, 
+filler4, 			filler5, 			filler6, 				filler7,
+filler8, 			filler9, 			filler10, 				signuserid1,
+custuserid1, 		signuserid2, 		custuserid2, 			signuserid3,
+custuserid3, 		dispfullname, 		dispid, 				printremark,
+vtsmrcpchqdtls_prnchqid_seq.NEXTVAL, a.prnchqid, a.wfprnchqid, a.wfprnchqid,
+ a.prnreqid, a.prnreqid, a.advno, TO_DATE(a.advdate, 'YYYY-MM-DD HH24:MI:SS') AS advdate,
+ a.custrefno, 		a.chqno, 			TO_DATE(a.chqdate, 'YYYY-MM-DD HH24:MI:SS') AS chqdate, a.chqamount,
+ a.chqbenname, 		a.benfullname, 		a.email, 		a.benaddline1,
+ a.benaddline2, 	a.benaddline3, 		a.benaddline4, 	a.benaddline5,
+ a.paydescline1, 	a.paydescline2, 	a.paydescline3, a.paydescline4,
+ a.cntperidtype, 	a.cntperidno, 		a.cntname, 		a.cntmobile,
+ a.dispaddline1, 	a.dispaddline2, 	a.dispaddline3, a.dispaddline4,
+ a.dispaddline5, 	a.filler1, 			a.filler2, 		a.filler3,
+ a.filler4, 		a.filler5, 			a.filler6, 		a.filler7,
+ a.filler8, 		a.filler9, 			a.filler10, 	a.signuserid1,
+ a.subuserid1, 		a.signuserid2, 		a.subuserid2, 	a.signuserid3,
+ a.subuserid3, 		a.dispfullname, 	a.dispid, 		a.printremark,
+ a.failedremarks, 	CASE WHEN A.STATUSCODE = '5' THEN 1 ELSE A.STATUSCODE END,
+ --a.statuscode,
+ a.stopstatus, 		a.micr, 			a.ppstatus,     a.clrchqstatus,
+ TO_DATE(a.clrchqdate, 'YYYY-MM-DD HH24:MI:SS') AS clrchqdate,
+ TO_DATE(a.chqissuedate, 'YYYY-MM-DD HH24:MI:SS') AS chqissuedate,
+ TO_DATE(a.crtdate, 'YYYY-MM-DD HH24:MI:SS') AS crtdate,
+ a.crtby, 			a.crtip, 
+ TO_DATE(a.mdydate, 'YYYY-MM-DD HH24:MI:SS') AS mdydate,
+ a.mdyby, 			a.mdyip, 			a.recordremarks, a.levelofrejection,
+ a.ischqclr, 
+ --TO_DATE(a.arabicchqdate, 'YYYY-MM-DD HH24:MI:SS') 
+ NULL         AS arabicchqdate,
+ a.arabicchqamt, 	a.chqstatust24, 
+ (select DEBATCHIDNEW from stgvtstrcpdebatch where DEBATCHIDOLD = a.parentprnreqid)  AS parentprnreqid,
+ A.PARENTPRNCHQID AS parentprnchqid,    a.ischqnoreq, 	a.reprintcount,
+ a.rejectedby, 		a.verrejuser1, 
+ TO_DATE(a.verrejdate1, 'YYYY-MM-DD HH24:MI:SS') AS verrejdate1,
+ a.verrejremarks1, a.verrejuser2, 
+ TO_DATE(a.verrejdate2, 'YYYY-MM-DD HH24:MI:SS') AS verrejdate2,
+ a.verrejremarks2, a.verrejuser3,
+ TO_DATE(a.verrejdate3, 'YYYY-MM-DD HH24:MI:SS') AS verrejdate3,
+ a.verrejremarks3, 	a.verrejuser4,
+ TO_DATE(a.verrejdate4, 'YYYY-MM-DD HH24:MI:SS') AS verrejdate4,
+ a.verrejremarks4, a.verrejuser5, 
+ TO_DATE(a.verrejdate5, 'YYYY-MM-DD HH24:MI:SS') AS verrejdate5,
+ a.verrejremarks5, a.printholdby, 	a.deleteby, 	a.deleteremarks, 
+ a.printholdusertype, U.userid, 	U1.userID, 		'P',
+ P_MIGBID, 	SYSDATE
+ --            , 
+ --            U2.LOGINID failedremarks,
+ statuscode, 		stopstatus, 			micr, 		  	   ppstatus, 	
+ clrchqstatus, 		clrchqdate, 			chqissuedate, 	   crtdate,
+ crtby, 			crtip, 					mdydate, 		   mdyby,
+ mdyip, 			recordremarks, 			levelofrejection,  ischqclr,
+ arabicchqdate, 	arabicchqamt, 			chqstatust24, 	   parentprnreqid,
+ parentprnchqid, 	ischqnoreq, 			reprintcount, 	   rejectedby,
+ verrejuser1, 		verrejdate1, 			verrejremarks1,    verrejuser2,
+ verrejdate2, 		verrejremarks2, 		verrejuser3, 	   verrejdate3,
+ verrejremarks3, 	verrejuser4, 			verrejdate4, 	   verrejremarks4,
+ verrejuser5, 		verrejdate5, 			verrejremarks5,    printholdby, 	
+ deleteby, 			deleteremarks, 			printholdusertype, LOGINID, 	
+ MDYLOGINID, 		MIGSTATUSCODE, 			MIGBID , 			MIGDATE
+ --        , --        APPLOGINID
+        FROM
+            stgrcpcbkbtprnreqchq a
+            INNER JOIN stgvtstrcpdebatch D ON  D.DEBATCHIDOLD = a.PRNREQID  
+             INNER JOIN  VT_RCP.STGRCPCBKBTPRNREQ B ON B.PRNREQID = A.PRNREQID
+            INNER JOIN VT_COB.STGRCPCBKSMCUSTUSER U ON U.custUSERID = to_char(A.CRTBY)
+             LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U1 ON U1.custUSERID = to_char(A.MDYBY)
+           --  LEFT JOIN stgvtstrcpdebatch D1 ON D1.DEBATCHIDOLD = A.parentprnreqid
+--             LEFT JOIN VT_COB.STGRCPCBKSMCUSTUSER U2 ON U2.USERID = A.APPBY;
+             WHERE d.statuscode IN(1190,1200,1004,1005);
+
+    ---------------------------------------------------END VTSMRCPCHQDTLS
+
+-------------------------------STGVTSTBATCHPRCSTRN TABLE 1
+    INSERT INTO migvtstbatchprcstrn (
+        		batchrunid,		batchrunidold,		crtdate,		filename,
+        custid,			custidold,			accid,			accidold,
+        cifid,			cifidold,			statuscode,		refid,
+        refidold,		crtby,				crtip,			mdydate,
+        mdyby,			mdyip,				batchtotrecs,	succrecs,
+        failrecs,		filetype,			initchn,		entitytype,
+        orgfilename,	MIGSTATUSCODE,		MIGBID,			MIGDATE
+    )
+        SELECT
+            seq_st_batchrunid.NEXTVAL, 		b.batchrunidold, 		b.crtdate, 		b.filename,
+			c.custid, 						b.custidold, 			ACC.accid, 		b.accidold,
+			b.cifidnew, 					b.cifidold, 			b.statuscode, 	B.REFIDNEW,
+			B.refidOLD, 					U.USERID, 				b.crtip, 		b.mdydate,
+			U1.USERID, 						b.mdyip, 				b.batchid, 		b.totrecs,
+			b.succrecs, 					b.failrecs, 			b.filetype, 	b.initchn,
+			b.entitytype, 					b.orgfilename, 			'P', 			b.MIGBID,
+			SYSDATE
+        FROM
+                 stgvtstbatchprcstrn b
+--            INNER JOIN stgvtstrcpdebatch D ON  D.BATCHRUNIDOLD = B.BATCHRUNIDOLD    
+            INNER JOIN vtcmcust c ON (c.gcifno = b.GCIFNO)
+            INNER JOIN VTCMCUSTACC ACC ON ACC.ACCNO = b.accno
+            INNER JOIN VTAMPCUSER U ON U.LOGINID = B.LOGINID AND U.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U1 ON U1.LOGINID = B.MDYLOGINID  AND U1.ENTITYID=C.CUSTID
+            WHERE  b.MIGSTATUSCODE ='P' AND
+            B.BATCHRUNIDNEW IN (SELECT DISTINCT BATCHRUNIDNEW FROM stgvtstrcpdebatch WHERE STATUSCODE IN (1190,1200,1004,1005) );
+--            INNER JOIN MIGVTSMTEMP t ON (t.TEMPIDOLD = B.REFIDOLD)
+
+--         D.STATUSCODE IN(1190,1200,1004,1005)
+--         AND
+
+
+
+    ------------------------------------------------END STGVTSTBATCHPRCSTRN TABLE
+
+    ------------------------------------------------ST VTSTRCPFILEUPL 2
+
+    INSERT INTO migvtstrcpfileupl (
+        prnuploadid, 		prnuploadidold, 		batchrunid, 		batchrunidold,
+		custrefno, 			chqbenname, 			chqno, 			chqdate, 
+		chqamount, 			advno, 					advdate, 			benfullname,
+		benaddline1, 		benaddline2, 			benaddline3, 		benaddline4,
+		benaddline5, 		email, 					paydescline1, 		paydescline2,
+		paydescline3, 		paydescline4, 			dispfullname, 		cntname,
+		cntmobile, 			cntperidtype, 			cntperidno, 		dispaddline1,
+		dispaddline2, 		dispaddline3, 			dispaddline4, 		dispaddline5,
+		filler1, 			filler2, 				filler3, 			filler4,
+		filler5, 			filler6, 				filler7, 			filler8,
+		filler9, 			filler10, 				authdtlsid, 		statuscode,
+		STATUSDESC, 		remarks, 				crtdate, 			crtby,
+		crtip,	 			arabicchqdate, 			arabicchqamt,		parentprnreqid,
+		parentprnreqidold, 	parentprnchqid, 		parentprnchqidold, 	ischqnoreq,
+		printremark, 		failedremarks, 			MIGSTATUSCODE, 		MIGBID,
+		MIGDATE
+    )
+        SELECT
+            vtstrcpfileupl_prnuploadid_seq.NEXTVAL,		d.prnuploadidold, 		b.batchrunid, 		d.batchrunidold,
+			d.custrefno,	 d.chqbenname,		 		d.chqno, 				d.chqdate, 			d.chqamount,
+			d.advno, 		 d.advdate, 				d.benfullname, 			d.benaddline1, 		d.benaddline2,
+			d.benaddline3, 	 d.benaddline4, 			d.benaddline5, 			d.email, 			d.paydescline1,
+			d.paydescline2,  d.paydescline3, 			d.paydescline4, 		d.dispfullname, 	d.cntname,
+			d.cntmobile, 	 d.cntperidtype, 			d.cntperidno, 			d.dispaddline1,		d.dispaddline2,
+			d.dispaddline3,  d.dispaddline4, 			d.dispaddline5, 		d.filler1, 			d.filler2,
+			d.filler3, 		 d.filler4, 				d.filler5, 				d.filler6, 			d.filler7,
+			d.filler8, 		 d.filler9, 				d.filler10, 			d.authdtlsid, 		d.statuscode,
+			CASE WHEN d.statuscode='2'  THEN 'SUCCESS' ELSE 'FAILURE' END,
+			d.remarks, 	 d.crtdate, 				d.crtby, 				d.crtip, 			d.arabicchqdate,
+			d.arabicchqamt, d.parentprnreqidnew,		d.parentprnreqidold, 	d.parentprnchqidnew,d.parentprnchqidold,
+			d.ischqnoreq, 	 d.printremark, 			d.failedremarks, 		'P', 				d.MIGBID,
+			SYSDATE
+        FROM
+                 stgvtstrcpfileupl d
+            INNER JOIN migvtstbatchprcstrn b ON ( b.batchrunidold = d.batchrunidold )
+             WHERE d.MIGSTATUSCODE ='P';
+
+    -----------------------------------------------END VTSTRCPFILEUPL
+
+
+
+    INSERT INTO MIGvtstrcpfileuplerr (
+        prnuploadid,		prnuploadidold, 		batchrunid, 		batchrunidold,
+		custrefno, 			chqbenname, 			chqno, 				chqdate,
+		chqamount, 			advno, 					advdate, 			benfullname, 
+		benaddline1, 		benaddline2, 			benaddline3, 		benaddline4,
+		benaddline5, 		email, 					paydescline1, 		paydescline2,
+		paydescline3, 		paydescline4, 			dispfullname, 		cntname, 
+		cntmobile, 			cntperidtype, 			cntperidno, 		dispaddline1, 
+		dispaddline2, 		dispaddline3, 			dispaddline4, 		dispaddline5, 
+		filler1, 			filler2, 				filler3, 			filler4, 
+		filler5, 			filler6, 				filler7, 			filler8, 
+		filler9, 			filler10, 				authdtlsid, 		statuscode,
+		STATUSDESC, 		remarks, 				crtdate, 			crtby, 
+		crtip, 				arabicchqdate, 			arabicchqamt, 		parentprnreqid,
+		parentprnreqidold, 	parentprnchqid, 		parentprnchqidold, 	ischqnoreq,
+		printremark, 		failedremarks, 			MIGSTATUSCODE, 		MIGBID,
+		MIGDATE
+    )
+        SELECT
+		vtstrcpfileupl_prnuploadid_seq.NEXTVAL, 	d.prnuploadidold, 		b.prnuploadid, 		d.batchrunidold,
+		d.custrefno, 		d.chqbenname, 		d.chqno, 		d.chqdate,
+		d.chqamount, 		d.advno, 			d.advdate, 		d.benfullname,
+		d.benaddline1, 		d.benaddline2, 		d.benaddline3, 	d.benaddline4, 
+		d.benaddline5, 		d.email, 			d.paydescline1, d.paydescline2,
+		d.paydescline3, 	d.paydescline4, 	d.dispfullname, d.cntname,
+		d.cntmobile, 		d.cntperidtype, 	d.cntperidno, 	d.dispaddline1,
+		d.dispaddline2, 	d.dispaddline3, 	d.dispaddline4, d.dispaddline5,
+		d.filler1, 			d.filler2, 			d.filler3, 		d.filler4, 
+		d.filler5, 			d.filler6, 			d.filler7, 		d.filler8,
+		d.filler9, 			d.filler10, 		d.authdtlsid, 	d.statuscode,
+		CASE WHEN d.statuscode='2'  THEN 'SUCCESS' ELSE 'FAILURE' END,
+		d.remarks, 			d.crtdate, 			d.crtby, 		d.crtip,
+		d.arabicchqdate, 	d.arabicchqamt, 	d.parentprnreqidnew,  d.parentprnreqidold,
+		d.parentprnchqidnew,d.parentprnchqidold, d.ischqnoreq, d.printremark,
+		d.failedremarks, 	'P', 			d.MIGBID,		 SYSDATE
+        FROM
+                 stgvtstrcpfileuplerr d
+            INNER JOIN stgrcpcbkbtuploadprnreq b ON ( b.prnuploadid = d.batchrunidold )
+             WHERE d.MIGSTATUSCODE ='P';
+
+
+    ------------------------------------------------VTSTRCPDEBATCH 5
+
+    INSERT INTO migvtstrcpdebatch (
+			debatchid, 	   	debatchidold, 		batchrunid, 		batchrunidold,
+			prnreqdate, 	 filename, 			custid, 			custidold, 
+			cifno, 		   	 custaccid, 			custaccidold, 		accno,
+			printtype, 	   	  printloctype, 		totchq, 			totsuccchq,
+			totfailchq, 	  totamount, 			totsuccamount, 		totfailamount,
+			verifierappflag,  verifiercustuserid, 	verifierdate,   	verifierremarks,
+			sign1group, 	  sign1appflag,        sign1custuserid, 	sign1appdate,
+			sign1appremarks,  sign2group,          sign2appflag,    	sign2custuserid,
+			sign2appdate, 	  sign2appremarks, 	sign3group, 		sign3appflag,
+			sign3custuserid,  sign3appdate, 		sign3appremarks, 	custcntname,
+			custcntmobile, 	  custaddline1, 		custaddline2, 		custaddline3, 
+			custaddline4, 	  custaddline5,		custcntemail, 		chqfilename,
+			downchqflag, 	  invfilename, 		downinvflag, 		dispcompstatus,
+			serviceproduct,   cutoffstatus, 		tempid, 			reprint,
+			viewpdf, 		  viewpdffilename, 	notetoapp, 			appremarks,
+			statuscode, 	  crtdate, 			crtby, 				crtip,
+			mdydate, 		  mdyby, 				mdyip, 				appdate,
+			appby, 			  appip, 				orgprnreqid, 		verifierappflag2,
+			verifieruserid2,  verifierdate2, 		verifierremarks2, 	verifierappflag3,
+			verifieruserid3,  verifierdate3, 		verifierremarks3, 	verifierappflag4, 
+			verifieruserid4,  verifierdate4, 		verifierremarks4, 	verifierappflag5,
+			verifieruserid5,  verifierdate5, 		verifierremarks5, 	totholdchq,
+			totholdamount, 	  ispartialverify, 	ispartialapprove, 	ispartialprint,
+			ischargeposted, 	authdtlsid, 		MIGSTATUSCODE, 		MIGBID, 
+			MIGDATE
+    )
+        SELECT
+            d.debatchidnew, 	d.debatchidold, 	f.batchrunid, 		d.batchrunidold,
+d.prnreqdate, 		d.filename, 		c.custid, 			d.custidold, 
+d.cifno, 			a.accid, 			d.custaccidold, 	d.accno,
+d.printtype, 		d.printloctype, 	d.totchq, 			d.totsuccchq,
+d.totfailchq, 		d.totamount, 		d.totsuccamount,	d.totfailamount, d.verifierappflag, 
+case when d.verifierappflag = 'R' then null else U4.USERID end, 
+d.verifierdate, 	d.verifierremarks, 	d.sign1group, 	   	d.sign1appflag,
+ U5.USERID, 		d.sign1appdate, 	d.sign1appremarks, 	d.sign2group, 
+ d.sign2appflag, 	U6.USERID, 			d.sign2appdate, 	d.sign2appremarks, 
+ d.sign3group, 		d.sign3appflag, 	U7.USERID, 			d.sign3appdate,
+ d.sign3appremarks, d.custcntname, 		d.custcntmobile, 	d.custaddline1,
+ d.custaddline2, 	d.custaddline3, 	d.custaddline4, 	d.custaddline5,
+ d.custcntemail, 	d.chqfilename, 		d.downchqflag, 		d.invfilename,
+ d.downinvflag, 	d.dispcompstatus, 	d.serviceproduct, 	d.cutoffstatus,
+ T.tempid, 			d.reprint, 
+ -- d.viewpdf,
+ CASE WHEN d.viewpdffilename IS NULL THEN 'N' ELSE 'Y' END AS viewpdf,
+ d.viewpdffilename, d.notetoapp, 	d.appremarks, 	d.statuscode,
+ d.crtdate, 		U1.USERID, 		d.crtip, 		d.mdydate, 
+ U2.USERID, 		d.mdyip, 		d.appdate, 		U3.USERID,
+ d.appip, (SELECT DEBATCHIDNEW FROM stgvtstrcpdebatch 
+ WHERE DEBATCHIDOLD = 
+ (SELECT z.ORGPRNREQID FROM stgvtstrcpdebatch Z 
+ INNER JOIN stgvtstrcpdebatch T1 ON T1.DEBATCHIDOLD = Z.ORGPRNREQID 
+ where Z.DEBATCHIDNEW =d.DEBATCHIDNEW)), --            d.orgprnreqid,
+ d.verifierappflag2,
+ case when d.verifierappflag2 = 'R' then null else d.verifieruserid2 end,
+ d.verifierdate2, 	d.verifierremarks2, 	d.verifierappflag3,
+ case when d.verifierappflag3 = 'R' then null else d.verifieruserid3 end,
+d.verifierdate3, 	d.verifierremarks3, 	d.verifierappflag4,
+ case when d.verifierappflag4 = 'R' then null else d.verifieruserid4 end,
+ d.verifierdate4, 	d.verifierremarks4, 	d.verifierappflag5,
+ case when d.verifierappflag5 = 'R' then null else d.verifieruserid5 end,
+ d.verifierdate5, 	d.verifierremarks5, 	d.totholdchq, 		d.totholdamount,
+ d.ispartialverify, d.ispartialapprove, 	d.ispartialprint,	d.ischargeposted,
+ d.authdtlsid, 		'P', 					d.MIGBID, 			SYSDATE
+        FROM
+                 stgvtstrcpdebatch d
+            INNER JOIN migvtstbatchprcstrn f ON ( f.batchrunidold = d.batchrunidold )   
+            inner join stgrcpcbkbtprnreq cbk on cbk.prnreqid = d.DEBATCHIDOLD     
+            INNER JOIN vtcmcust          c ON ( c.gcifno = d.cifno )
+            INNER JOIN vtcmcustacc       a ON ( a.accno = d.accno )
+            INNER JOIN VTAMPCUSER U1 ON U1.LOGINID  = D.LOGINID AND U1.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U2 ON U2.LOGINID  = D.MDYLOGINID AND U2.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U3 ON U3.LOGINID  = D.APPLOGINID AND U3.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U4 ON U4.LOGINID  = D.VLOGINID1 AND U4.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U5 ON U5.LOGINID  = D.SIGNLOGINID1 AND U5.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U6 ON U6.LOGINID  = D.SIGNLOGINID2 AND U6.ENTITYID=C.CUSTID
+            LEFT JOIN VTAMPCUSER U7 ON U7.LOGINID  = D.SIGNLOGINID3 AND U7.ENTITYID=C.CUSTID
+            INNER JOIN MIGVTSMTEMP t ON (t.TEMPIDOLD = D.TEMPID)
+            WHERE d.MIGSTATUSCODE ='P';
+
+
+
+
+
+    -------------------------------------------------END VTSTRCPDEBATCH
+    ---------------------------------------------------VTSTRCPSUBDEBATCH 6  WRONG TABLE 
+
+    INSERT INTO migvtstrcpsubdebatch (
+        subdebatchid,		batchrunid,			batchrunidold,		parentdebatchid,
+        childdebatchid,		childdebatchidold,	seqno,				debatchby,
+        debatchdate,		MIGSTATUSCODE,		MIGBID,				MIGDATE
+    )
+        SELECT
+            vtstrcpsubdebatchid_seq.NEXTVAL,
+            f.batchrunid,			s.batchrunidold,	s.parentdebatchid,	s.childdebatchidnew,
+            s.childdebatchidold,	s.seqno,			s.debatchby,		s.debatchdate,
+            'P',					s.MIGBID,
+            SYSDATE
+        FROM
+                 stgvtstrcpsubdebatch s
+            INNER JOIN migvtstbatchprcstrn f ON ( f.batchrunidold = s.batchrunidold )
+            WHERE s.MIGSTATUSCODE ='P';
+
+    ---------------------------------------------------END VTSTRCPSUBDEBATCH 
+ INSERT INTO migvtsmrcpchqdtls (prnchqid,			prnchqidold,			prnuploadid,			prnuploadidold,
+									debatchid,			debatchidold,			advno,					advdate,
+									custrefno,			chqno,					chqdate,				chqamount,
+									chqbenname,			benfullname,			email,					benaddline1,
+									benaddline2,		benaddline3,			benaddline4,			benaddline5,
+									paydescline1,		paydescline2,			paydescline3,			paydescline4,
+									cntperidtype,		cntperidno,				cntname,				cntmobile,
+									dispaddline1,		dispaddline2,			dispaddline3,			dispaddline4,
+									dispaddline5,		filler1,				filler2,				filler3,
+									filler4,			filler5,				filler6,				filler7,
+									filler8,			filler9,				filler10,				signuserid1,
+									custuserid1,		signuserid2,			custuserid2,			signuserid3,
+									custuserid3,		dispfullname,			dispid,					printremark,
+									failedremarks,		statuscode,				stopstatus,				micr,
+									ppstatus,			clrchqstatus,			clrchqdate,				chqissuedate,
+									crtdate,			crtby,					crtip,					mdydate,
+									mdyby,				mdyip,					recordremarks,			levelofrejection,
+									ischqclr,			arabicchqdate,			arabicchqamt,			chqstatust24,
+									parentprnreqid,		parentprnchqid,			ischqnoreq,				reprintcount,
+									rejectedby,			verrejuser1,			verrejdate1,			verrejremarks1,
+									verrejuser2,		verrejdate2,			verrejremarks2,			verrejuser3,
+									verrejdate3,		verrejremarks3,			verrejuser4,			verrejdate4,	
+									verrejremarks4,		verrejuser5,			verrejdate5,			verrejremarks5,
+									printholdby,		deleteby,				deleteremarks,			printholdusertype,
+									MIGSTATUSCODE,		MIGBID,					MIGDATE
+    )
+        SELECT	D.PRNCHQIDNEW,			d.prnchqidold,			null,				d.prnuploadidold,
+				b.debatchid,			d.debatchidold,			d.advno,			d.advdate,
+				d.custrefno,			d.chqno,				d.chqdate,			d.chqamount,
+				d.chqbenname,			d.benfullname,			d.email,			d.benaddline1,
+				d.benaddline2,			d.benaddline3,			d.benaddline4,		d.benaddline5,
+				d.paydescline1,			d.paydescline2,			d.paydescline3,		d.paydescline4,
+				d.cntperidtype,			d.cntperidno,			d.cntname,			d.cntmobile,
+				d.dispaddline1,			d.dispaddline2,			d.dispaddline3,		d.dispaddline4,
+				d.dispaddline5,			d.filler1,				d.filler2,			d.filler3,
+				d.filler4,				d.filler5,				d.filler6,			d.filler7,
+				d.filler8,				d.filler9,				d.filler10,			d.signuserid1,
+				d.custuserid1,			d.signuserid2,			d.custuserid2,		d.signuserid3,
+				d.custuserid3,			d.dispfullname,			d.dispid,			d.printremark,
+				d.failedremarks,		d.statuscode,			d.stopstatus,		d.micr,
+				d.ppstatus,				d.clrchqstatus,			d.clrchqdate,		d.chqissuedate,
+				d.crtdate,				u.userid,				d.crtip,			d.mdydate,
+				u1.userid,				d.mdyip,				d.recordremarks,	d.levelofrejection,
+				d.ischqclr,				d.arabicchqdate,		d.arabicchqamt,		d.chqstatust24,
+				d.parentprnreqid,		(SELECT PRNCHQIDNEW FROM stgvtsmrcpchqdtls WHERE PRNCHQIDOLD 
+				=(SELECT PARENTPRNCHQID  FROM stgvtsmrcpchqdtls WHERE PRNCHQIDNEW =d.PRNCHQIDNEW) AND ROWNUM=1)  AS parentprnchqid,
+				d.ischqnoreq,			d.reprintcount,
+				d.rejectedby,			d.verrejuser1,			d.verrejdate1,		d.verrejremarks1,
+				d.verrejuser2,			d.verrejdate2,			d.verrejremarks2,	d.verrejuser3,
+				d.verrejdate3,			d.verrejremarks3,		d.verrejuser4,		d.verrejdate4,
+				d.verrejremarks4,		d.verrejuser5,			d.verrejdate5,		d.verrejremarks5,
+				d.printholdby,			d.deleteby,				d.deleteremarks,	d.printholdusertype,
+				'P',					d.MIGBID,				SYSDATE
+        FROM
+                 stgvtsmrcpchqdtls d
+            --INNER JOIN migvtstrcpfileupl f ON ( f.prnuploadidold = d.prnuploadidold )
+            INNER JOIN migvtstrcpdebatch b ON ( b.debatchidold = D.DEBATCHIDOLD )
+            INNER JOIN VTAMPCUSER U ON U.LOGINID = d.LOGINID AND U.ENTITYID=b.CUSTID
+            LEFT JOIN VTAMPCUSER U1 ON U1.LOGINID = d.MDYLOGINID AND U1.ENTITYID=b.CUSTID
+            WHERE d.MIGSTATUSCODE ='P';
+
+    ---------------------------------------------------END VTSMRCPCHQDTLS
+
+  -----------------------------------------------VTSTRCPENRICHUPL 3
+
+    INSERT INTO migvtstrcpenrichupl (enrichuplid,		prnuploadid,		prnuploadidold,		enrichvalue,
+									 crtdate,			crtby,				crtip,				mdydate,
+									 mdyby,				mdyip,				statuscode,			statusdesc,
+									 encrichvalue1,		encrichvalue2,		encrichvalue3,		encrichvalue4,
+									 encrichvalue5,		MIGSTATUSCODE,		MIGBID,				MIGDATE
+    )
+        SELECT	vtstrcpenrich_enrichuplid_seq.NEXTVAL,		b.prnuploadid,		a.prnuploadidold,		a.enrichvalue,								
+		a.crtdate,											a.crtby,			a.crtip,				a.mdydate,
+		a.mdyby,											a.mdyip,			a.statuscode,			a.statusdesc,
+		a.encrichvalue1,									a.encrichvalue2,	a.encrichvalue3,		a.encrichvalue4,
+		a.encrichvalue5,									'P',				a.MIGBID,				SYSDATE
+        FROM
+                 stgvtstrcpenrichupl a
+            INNER JOIN migvtstrcpfileupl b ON b.prnuploadidold = a.prnuploadidold
+             WHERE a.MIGSTATUSCODE ='P';
+
+    -----------------------------------------------END VTSTRCPENRICHUPL
+
+    -----------------------------------------------VTSMRCPENRICHDTLS  4
+
+    INSERT INTO migvtsmrcpenrichdtls (prnenrichid,		prnenrichidold,		prnchqid,		prnchqidold,
+									  prnuploadid,		prnuploadidold,		enrichvalue,	crtdate,
+									  crtby,			crtip,				mdydate,		mdyby,
+									  mdyip,			encrichvalue1,		encrichvalue2,	encrichvalue3,
+									  encrichvalue4,	encrichvalue5,		MIGSTATUSCODE,	MIGBID,
+									  MIGDATE
+    )
+        SELECT	vtsmrcpenrich_enrichid_seq.NEXTVAL,		a.prnenrichidold,	C.PRNCHQID,		C.PRNCHQIDOLD,
+				NULL,									a.prnuploadidold,	a.enrichvalue,	a.crtdate,
+--u.userid,		a.crtby,								a.crtip,			a.mdydate,		a.mdyby,
+				a.mdyip,								a.encrichvalue1,	a.encrichvalue2,a.encrichvalue3,
+				a.encrichvalue4,						a.encrichvalue5,	'P',			a.MIGBID,
+				SYSDATE
+        FROM
+                 stgvtsmrcpenrichdtls a
+            INNER JOIN MIGVTSMRCPCHQDTLS C ON C.PRNCHQIDOLD = A.PRNCHQIDOLD     
+          --  INNER JOIN migvtstrcpfileupl b ON b.prnuploadidold = a.prnuploadidold
+            WHERE a.MIGSTATUSCODE ='P';
+          --  INNER JOIN VTAMPCUSER U ON U.LOGINID = a.LOGINID;   
+    ------------------------------------------------END VTSMRCPENRICHDTLS
+
+   ------------------------------------------------------------------------vtsmrcpauthlogmap
+
+INSERT INTO migvtsmrcpauthlogmap (
+		authlogdebatchid,		custid,			groupcode,		authseqflag,
+		appby,					appdate,		appstatus,		authdtlsid,
+		status,					lvseq,			MIGSTATUSCODE,	MIGBID,
+		MIGDATE,				APPSTATUSDESC
+)
+     WITH prnreq AS (
+        SELECT 
+		debatchid,		custid,				cifno,					custaccid,
+		accno,			NULL  AS signgroup,	NULL  AS signappdate,	NULL  AS signcustuserid,
+		MIGBID,			CRTBY,				crtdate,				SIGN1APPFLAG,
+		CASE WHEN SIGN1APPFLAG ='N' AND STATUSCODE NOT IN(1004,1005) THEN 'A' 
+			 ELSE NULL END AS APPSTATUS,'A' AS STATUS,
+		STATUSCODE
+        FROM
+            migvtstrcpdebatch
+        UNION
+        SELECT 
+		debatchid,		custid,		cifno,						custaccid,
+		accno,			sign1group,	sign1appdate AS signdate,	sign1custuserid,
+		MIGBID,			CRTBY,		crtdate,					SIGN1APPFLAG,
+		CASE WHEN statuscode = 1004 and sign1custuserid IS NULL  THEN  'R' ELSE 'A' END  as APPSTATUS,
+		CASE WHEN statuscode IN(1005,1004)  AND sign1custuserid IS NULL  THEN  'I' ELSE 'A' END  as STATUS,
+		STATUSCODE
+
+        FROM
+            migvtstrcpdebatch
+          WHERE   ( (SIGN1CUSTUSERID IS NULL AND STATUSCODE  = 1004 ) OR 
+          (SIGN1CUSTUSERID IS NULL AND (REPRINT IS NULL OR REPRINT = 0) AND STATUSCODE  = 1005 ) OR
+          ((SIGN1CUSTUSERID IS NOT NULL AND STATUSCODE NOT IN (1004) ) ) )
+
+        /*  ( ( SIGN1CUSTUSERID IS NOT NULL  AND statuscode NOT IN (1004)) OR
+          ( SIGN1CUSTUSERID IS NOT NULL  AND SIGN2CUSTUSERID IS  NULL  AND statuscode NOT IN (1005) )
+          OR (statuscode IN(1005,1004) ) )  */
+        UNION
+        SELECT 
+		debatchid,		custid,			cifno,							custaccid,
+		accno,			sign2group,		sign2appdate AS signdate,		sign2custuserid,
+		MIGBID,			CRTBY,			crtdate,						SIGN2APPFLAG,
+		CASE WHEN statuscode = 1004 AND sign1custuserid IS NULL  THEN  'R'	WHEN statuscode = 1005 
+		AND sign1custuserid IS NOT NULL AND sign2custuserid IS NULL  THEN  'R'	ELSE 'A' END  as APPSTATUS,
+		CASE WHEN statuscode = 1004  THEN  'I'	WHEN statuscode = 1005 AND sign1custuserid IS NOT NULL AND sign2custuserid IS NULL  THEN  'I'
+		ELSE 'A' END  as STATUS,
+		STATUSCODE
+
+        FROM
+            migvtstrcpdebatch
+        WHERE  ( (SIGN1CUSTUSERID IS NOT NULL AND SIGN2CUSTUSERID IS NULL  AND STATUSCODE = 1004 ) OR 
+          ((SIGN1CUSTUSERID IS NOT NULL AND SIGN2CUSTUSERID IS NULL  AND (REPRINT IS NULL OR REPRINT = 0)  AND STATUSCODE = 1005 ) OR (
+          SIGN1CUSTUSERID IS NOT NULL AND SIGN2CUSTUSERID IS NOT NULL  AND STATUSCODE NOT IN (1004)
+          )) )
+
+
+--          WHERE ( ( SIGN1CUSTUSERID IS NOT NULL  AND statuscode NOT IN (1004)) OR
+--          ( SIGN1CUSTUSERID IS NOT NULL  AND SIGN2CUSTUSERID IS  NULL  AND statuscode NOT IN (1005) )
+----          OR (statuscode IN(1005,1004) )
+--          )
+        UNION
+        SELECT
+        debatchid,		custid,			cifno,						custaccid,
+        accno,			sign3group,		sign3appdate AS signdate,	sign3custuserid,
+        MIGBID,			CRTBY,			crtdate,					SIGN1APPFLAG,
+		CASE WHEN statuscode = 1004 AND sign1custuserid IS NULL  THEN  'R'	
+			 WHEN statuscode = 1005 AND sign1custuserid IS NOT NULL AND sign2custuserid IS NOT NULL AND sign3custuserid IS NULL  THEN  'R'
+				ELSE 'A' END  as APPSTATUS,
+		CASE WHEN statuscode = 1004  THEN  'I'
+             WHEN statuscode = 1005 AND sign1custuserid IS NOT NULL AND sign2custuserid IS NOT NULL AND sign3custuserid IS NULL  THEN  'I'
+			 ELSE 'A' END  as STATUS,
+			 STATUSCODE            
+        FROM
+            migvtstrcpdebatch
+        WHERE  ( (SIGN1CUSTUSERID IS NOT NULL AND SIGN2CUSTUSERID IS NOT NULL AND SIGN3CUSTUSERID IS NULL AND STATUSCODE =1004 ) OR 
+          (SIGN1CUSTUSERID IS NOT NULL AND SIGN2CUSTUSERID IS NOT NULL AND SIGN3CUSTUSERID IS NULL  AND (REPRINT IS NULL OR REPRINT = 0)  AND STATUSCODE = 1005 ) OR (
+          SIGN1CUSTUSERID IS NOT NULL AND SIGN2CUSTUSERID IS NOT NULL  AND SIGN3CUSTUSERID IS NOT NULL  AND STATUSCODE NOT IN (1004)
+          ) )
+--         WHERE ( ( SIGN1CUSTUSERID IS NOT NULL  AND statuscode NOT IN (1004)) OR
+--          ( SIGN1CUSTUSERID IS NOT NULL  AND SIGN2CUSTUSERID IS NOT NULL  AND  SIGN3CUSTUSERID IS  NULL  AND
+--          statuscode NOT IN (1005) )
+----          OR (statuscode IN(1005,1004) )
+--          )   
+    )
+    SELECT
+        vtsmrcpauthlog_authlogid_seq.NEXTVAL,		debatchid,		custid,		signgroup,
+        'Y'    AS authseq,
+        CASE WHEN SIGNCUSTUSERID IS NULL AND SIGNAPPDATE IS NULL AND SIGNGROUP IS NULL THEN	CRTBY 
+		ELSE signcustuserid END AS signcustuserid,
+        CASE WHEN SIGNCUSTUSERID IS NULL AND SIGNAPPDATE IS NULL AND SIGNGROUP IS NULL THEN
+        TO_DATE(crtdate, 'YYYY-MM-DD HH24:MI:SS') ELSE signappdate END AS signcustuserid,
+        APPSTATUS,
+	   -- CASE WHEN SIGN1APPFLAG ='Y' THEN  NULL ELSE 'A' END AS appsts,
+        '111',
+       STATUS,
+       CASE WHEN SIGNCUSTUSERID IS NULL AND SIGNAPPDATE IS NULL AND SIGNGROUP IS NULL THEN
+          0
+          ELSE  ROW_NUMBER()
+        OVER(PARTITION BY debatchid
+             ORDER BY SIGNGROUP
+        ) END AS sqnum,
+        'P',
+        MIGBID,
+        SYSDATE,
+        CASE WHEN SIGN1APPFLAG ='N' AND STATUSCODE NOT IN(1004,1005) THEN 'Self Authorized' ELSE NULL END AS REMARKS
+    FROM
+        prnreq;
+
+
+    --------------------------------------------------VTSTRCPDISP 8
+/*
+    INSERT INTO migvtstrcpdisp (dispid,			dispidold,		prnuploadid,		prnuploadidold,
+								debatchid,		debatchidold,	dispname,			dispaddline1,
+								dispaddline2,	dispaddline3,	dispaddline4,		dispaddline5,
+								dispfullname,	cntname,		cntmobile,			chqcnt,
+								awbno,			courier,		dispdate,			statuscode,
+								crtdate,		crtby,			crtip,				mdydate,
+								mdyby,			mdyip
+    )
+        SELECT
+            vtstrcpdisp_dispid_seq.NEXTVAL,		d.dispidold,		f.prnuploadid,		d.prnuploadidold,
+			b.debatchid,						d.debatchidold,		d.dispname,			d.dispaddline1,
+			d.dispaddline2,						d.dispaddline3,		d.dispaddline4,		d.dispaddline5,
+			d.dispfullname,						d.cntname,			d.cntmobile,		d.chqcnt,
+			d.awbno,							d.courier,			d.dispdate,			d.statuscode,
+			d.crtdate,							d.crtby,			d.crtip,			d.mdydate,
+			d.mdyby,							d.mdyip
+        FROM
+                 stgvtstrcpdisp d
+            INNER JOIN migvtstrcpfileupl f ON ( f.prnuploadidold = d.prnuploadidold )
+            INNER JOIN migvtstrcpdebatch b ON ( b.debatchidold = d.debatchidold );
+
+    -------------------------------------------------END VTSTRCPDISP
+
+    ------------------------------------------------VTSTRCPDISPFILE 9
+
+    INSERT INTO migvtstrcpdispfile (dispfileid,		dispfileidold,		dispuploadid,		dispuploadidold,
+									dispid,			dispidold,			batchid,			batchidold,
+									corporateid,	dispname,			dispaddline1,		dispaddline2,
+									dispaddline3,	dispaddline4,		dispaddline5,		cntmobile,
+									cntperidtype,	cntperidno,			couriername,		awbno,
+									dispdate,		statuscode,			statusdesc,			cntname
+    )
+        SELECT
+            vtstrcpdispfile_dispfileid_seq.NEXTVAL,		d.dispfileidold,	d.dispuploadidnew,		d.dispuploadidold,
+			t.dispid,									d.dispidold,		d.batchidnew,			d.batchidold,
+			d.corporateid,								d.dispname,			d.dispaddline1,			d.dispaddline2,
+			d.dispaddline3,								d.dispaddline4,		d.dispaddline5,			d.cntmobile,
+			d.cntperidtype,								d.cntperidno,		d.couriername,			d.awbno,
+			d.dispdate,									d.statuscode,		d.statusdesc,			d.cntname
+        FROM
+                 stgvtstrcpdispfile d
+            INNER JOIN migvtstrcpdisp t ON ( t.dispidold = d.dispidold ); */
+
+    -------------------------------------------------END VTSTRCPDISPFILE
+ UPDATE stgvtstbatchprcstrn SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+ UPDATE stgvtstrcpfileupl   SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+ UPDATE stgvtstrcpenrichupl SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+ UPDATE stgvtsmrcpenrichdtls SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+ UPDATE stgvtstrcpdebatch   SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+ UPDATE stgvtstrcpsubdebatch SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+ UPDATE stgvtsmrcpchqdtls  SET MIGSTATUSCODE ='S' WHERE MIGSTATUSCODE ='P';
+
+   INSERT INTO vtstbatchprcstrn (batchrunid,		crtdate,		filename,		custid,
+								 accid,				cifid,			statuscode,		refid,
+								 crtby,				crtip,			mdydate,		mdyby,
+								 mdyip,				batchid,		totrecs,		succrecs,
+								 failrecs,			filetype,		initchn,		entitytype,
+								 orgfilename
+    )
+        SELECT	batchrunid,		crtdate,		filename,		custid,
+				accid,			cifid,			statuscode,		refid,
+				crtby,			(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),	mdydate,	mdyby,
+				mdyip,			batchid,		totrecs,		succrecs,
+				failrecs,		filetype,		initchn,		entitytype,
+				orgfilename
+        FROM
+            migvtstbatchprcstrn 
+            WHERE MIGSTATUSCODE ='P';
+
+    ------------------------------------------------END STGVTSTBATCHPRCSTRN TABLE
+
+    ------------------------------------------------ST VTSTRCPFILEUPL 2
+
+    INSERT INTO vtstrcpfileupl (prnuploadid,		batchrunid,		custrefno,		chqbenname,
+								chqno,				chqdate,		chqamount,		advno,
+								advdate,			benfullname,	benaddline1,	benaddline2,
+								benaddline3,		benaddline4,	benaddline5,	email,
+								paydescline1,		paydescline2,	paydescline3,	paydescline4,
+								dispfullname,		cntname,		cntmobile,		cntperidtype,
+								cntperidno,			dispaddline1,	dispaddline2,	dispaddline3,
+								dispaddline4,		dispaddline5,	filler1,		filler2,
+								filler3,			filler4,		filler5,		filler6,
+								filler7,			filler8,		filler9,		filler10,
+								authdtlsid,			statuscode,		remarks,		crtdate,
+								crtby,				crtip,			arabicchqdate,	arabicchqamt,
+								parentprnreqid,		parentprnchqid,	ischqnoreq,		printremark,
+								failedremarks
+    )
+        SELECT	prnuploadid,	batchrunid,		custrefno,		chqbenname,
+				chqno,			chqdate,		chqamount,		advno,
+				advdate,		benfullname,	benaddline1,	benaddline2,
+				benaddline3,	benaddline4,	benaddline5,	email,
+				paydescline1,	paydescline2,	paydescline3,	paydescline4,
+				dispfullname,	cntname,		cntmobile,		cntperidtype,
+				cntperidno,		dispaddline1,	dispaddline2,	dispaddline3,
+				dispaddline4,	dispaddline5,	filler1,		filler2,
+				filler3,		filler4,		filler5,		filler6,
+				filler7,		filler8,		filler9,		filler10,
+				authdtlsid,		statuscode,		remarks,		crtdate,
+				crtby,			(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),	arabicchqdate,	arabicchqamt,
+				parentprnreqid,	parentprnchqid,	ischqnoreq,		printremark,
+				failedremarks
+        FROM
+            migvtstrcpfileupl
+            WHERE MIGSTATUSCODE ='P';
+
+    -----------------------------------------------END VTSTRCPFILEUPL
+
+
+
+     INSERT INTO vtstrcpfileuplerr (prnuploadid,		batchrunid,		custrefno,		chqbenname,
+									chqno,				chqdate,		chqamount,		advno,
+									advdate,			benfullname,	benaddline1,	benaddline2,
+									benaddline3,		benaddline4,	benaddline5,	email,
+									paydescline1,		paydescline2,	paydescline3,	paydescline4,
+									dispfullname,		cntname,		cntmobile,		cntperidtype,
+									cntperidno,			dispaddline1,	dispaddline2,	dispaddline3,
+									dispaddline4,		dispaddline5,	filler1,		filler2,
+									filler3,			filler4,		filler5,		filler6,
+									filler7,			filler8,		filler9,		filler10,
+									authdtlsid,			statuscode,		remarks,		crtdate,
+									crtby,				crtip,			arabicchqdate,	arabicchqamt,
+									parentprnreqid,		parentprnchqid,	ischqnoreq,		printremark,
+									failedremarks
+    )
+        SELECT	prnuploadid,		batchrunid,		custrefno,		chqbenname,
+				chqno,				chqdate,		chqamount,		advno,
+				advdate,			benfullname,	benaddline1,	benaddline2,
+				benaddline3,		benaddline4,	benaddline5,	email,
+				paydescline1,		paydescline2,	paydescline3,	paydescline4,
+				dispfullname,		cntname,		cntmobile,		cntperidtype,
+				cntperidno,			dispaddline1,	dispaddline2,	dispaddline3,
+				dispaddline4,		dispaddline5,	filler1,		filler2,
+				filler3,			filler4,		filler5,		filler6,
+				filler7,			filler8,		filler9,		filler10,
+				authdtlsid,			statuscode,		remarks,		crtdate,
+				crtby,				(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),	arabicchqdate,		arabicchqamt,
+				parentprnreqid,		parentprnchqid,	ischqnoreq,		printremark,
+				failedremarks
+        FROM
+            migvtstrcpfileuplerr
+            WHERE MIGSTATUSCODE ='P';
+
+
+    -----------------------------------------------VTSTRCPENRICHUPL 3
+
+    INSERT INTO vtstrcpenrichupl (enrichuplid,		prnuploadid,		enrichvalue,		crtdate,
+								  crtby,			crtip,				mdydate,			mdyby,
+								  mdyip,			statuscode,			statusdesc,			encrichvalue1,
+								  encrichvalue2,	encrichvalue3,		encrichvalue4,		encrichvalue5
+    )
+        SELECT	enrichuplid,	prnuploadid,		enrichvalue,		crtdate,
+				crtby,			(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),	mdydate,	mdyby,
+				mdyip,			statuscode,			statusdesc,			encrichvalue1,
+				encrichvalue2,	encrichvalue3,		encrichvalue4,		encrichvalue5
+        FROM
+            migvtstrcpenrichupl
+            WHERE MIGSTATUSCODE ='P';
+
+    -----------------------------------------------END VTSTRCPENRICHUPL
+
+    -----------------------------------------------VTSMRCPENRICHDTLS  4
+
+    INSERT INTO vtsmrcpenrichdtls (prnenrichid,		prnchqid,		prnuploadid,		enrichvalue,
+								   crtdate,			crtby,			crtip,				mdydate,
+									mdyby,			mdyip,			encrichvalue1,		encrichvalue2,
+									encrichvalue3,	encrichvalue4,	encrichvalue5
+    )
+        SELECT	prnenrichid,		prnchqid,		prnuploadid,		enrichvalue,
+				crtdate,			crtby,			(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),	mdydate,
+				mdyby,				mdyip,			encrichvalue1,		encrichvalue2,
+				encrichvalue3,		encrichvalue4,	encrichvalue5
+        FROM
+            migvtsmrcpenrichdtls
+            WHERE MIGSTATUSCODE ='P';
+
+    ------------------------------------------------END VTSMRCPENRICHDTLS
+    ------------------------------------------------VTSTRCPDEBATCH 5
+
+    INSERT INTO vtstrcpdebatch (debatchid,			batchrunid,				prnreqdate,			filename,
+								custid,				cifno,					custaccid,			accno,
+								printtype,			printloctype,			totchq,				totsuccchq,
+								totfailchq,			totamount,				totsuccamount,		totfailamount,
+								verifierappflag,	verifiercustuserid,		verifierdate,		verifierremarks,
+								sign1group,			sign1appflag,			sign1custuserid,	sign1appdate,
+								sign1appremarks,	sign2group,				sign2appflag,		sign2custuserid,
+								sign2appdate,		sign2appremarks,		sign3group,			sign3appflag,
+								sign3custuserid,	sign3appdate,			sign3appremarks,	custcntname,
+								custcntmobile,		custaddline1,			custaddline2,		custaddline3,
+								custaddline4,		custaddline5,			custcntemail,		chqfilename,
+								downchqflag,		invfilename,			downinvflag,		dispcompstatus,
+								serviceproduct,		cutoffstatus,			tempid,				reprint,
+								viewpdf,			viewpdffilename,		notetoapp,			appremarks,
+								statuscode,			crtdate,				crtby,				crtip,
+								mdydate,			mdyby,					mdyip,				appdate,
+								appby,				appip,					orgprnreqid,		verifierappflag2,
+								verifieruserid2,	verifierdate2,			verifierremarks2,	verifierappflag3,
+								verifieruserid3,	verifierdate3,			verifierremarks3,	verifierappflag4,
+								verifieruserid4,	verifierdate4,			verifierremarks4,	verifierappflag5,
+								verifieruserid5,	verifierdate5,			verifierremarks5,	totholdchq,
+								totholdamount,		ispartialverify,		ispartialapprove,	ispartialprint,
+								ischargeposted,		authdtlsid
+    )
+        SELECT		debatchid,			batchrunid,			prnreqdate,			filename,
+					custid,				cifno,				custaccid,			accno,
+					printtype,			printloctype,		totchq,				totsuccchq,
+					totfailchq,			totamount,			totsuccamount,		totfailamount,
+					verifierappflag,	verifiercustuserid,	verifierdate,		verifierremarks,
+					sign1group,			sign1appflag,		sign1custuserid,	sign1appdate,
+					sign1appremarks,	sign2group,			sign2appflag,		sign2custuserid,
+					sign2appdate,		sign2appremarks,	sign3group,			sign3appflag,
+					sign3custuserid,	sign3appdate,		sign3appremarks,	custcntname,
+					custcntmobile,		custaddline1,		custaddline2,		custaddline3,
+					custaddline4,		custaddline5,		custcntemail,		chqfilename,
+					downchqflag,		invfilename,		downinvflag,		dispcompstatus,
+					serviceproduct,		cutoffstatus,		tempid,				reprint,
+					viewpdf,			viewpdffilename,	notetoapp,			appremarks,
+					statuscode,			crtdate,			crtby,				(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),
+					mdydate,			mdyby,				mdyip,				appdate,
+					appby,				appip,				orgprnreqid,		verifierappflag2,
+					verifieruserid2,	verifierdate2,		verifierremarks2,	verifierappflag3,
+					verifieruserid3,	verifierdate3,		verifierremarks3,	verifierappflag4,
+					verifieruserid4,	verifierdate4,		verifierremarks4,	verifierappflag5,
+					verifieruserid5,	verifierdate5,		verifierremarks5,	totholdchq,
+					totholdamount,		ispartialverify,	ispartialapprove,	ispartialprint,
+					ischargeposted,		authdtlsid
+        FROM
+            migvtstrcpdebatch
+            WHERE MIGSTATUSCODE ='P';
+
+    -------------------------------------------------END VTSTRCPDEBATCH
+    ---------------------------------------------------VTSTRCPSUBDEBATCH 6  WRONG TABLE 
+
+    INSERT INTO vtstrcpsubdebatch (subdebatchid,	batchrunid,		parentdebatchid,	childdebatchid,
+									seqno,			debatchby,		debatchdate
+    )
+        SELECT	subdebatchid,		batchrunid,		parentdebatchid,		childdebatchid,
+				seqno,				debatchby,		debatchdate
+        FROM
+            migvtstrcpsubdebatch
+            WHERE MIGSTATUSCODE ='P';
+
+    ---------------------------------------------------END VTSTRCPSUBDEBATCH 
+
+    ---------------------------------------------------VTSMRCPCHQDTLS  7
+
+    INSERT INTO vtsmrcpchqdtls (prnchqid,				prnuploadid,		debatchid,			advno,
+								advdate,				custrefno,			chqno,				chqdate,
+								chqamount,				chqbenname,			benfullname,		email,
+								benaddline1,			benaddline2,		benaddline3,		benaddline4,
+								benaddline5,			paydescline1,		paydescline2,		paydescline3,
+								paydescline4,			cntperidtype,		cntperidno,			cntname,
+								cntmobile,				dispaddline1,		dispaddline2,		dispaddline3,
+								dispaddline4,			dispaddline5,		filler1,			filler2,
+								filler3,				filler4,			filler5,			filler6,
+								filler7,				filler8,			filler9,			filler10,
+								signuserid1,			custuserid1,		signuserid2,		custuserid2,
+								signuserid3,			custuserid3,		dispfullname,		dispid,
+								printremark,			failedremarks,		statuscode,			stopstatus,
+								micr,					ppstatus,			clrchqstatus,		clrchqdate,
+								chqissuedate,			crtdate,			crtby,				crtip,
+								mdydate,				mdyby,				mdyip,				recordremarks,
+								levelofrejection,		ischqclr,			arabicchqdate,		arabicchqamt,
+								chqstatust24,			parentprnreqid,		parentprnchqid,		ischqnoreq,
+								reprintcount,			rejectedby,			verrejuser1,		verrejdate1,
+								verrejremarks1,			verrejuser2,		verrejdate2,		verrejremarks2,
+								verrejuser3,			verrejdate3,		verrejremarks3,		verrejuser4,
+								verrejdate4,			verrejremarks4,		verrejuser5,		verrejdate5,
+								verrejremarks5,			printholdby,		deleteby,			deleteremarks,
+								printholdusertype
+    )
+        SELECT		prnchqid,			prnuploadid,		debatchid,		advno,
+					advdate,			custrefno,			chqno,			chqdate,
+					chqamount,			chqbenname,			benfullname,	email,
+					benaddline1,		benaddline2,		benaddline3,	benaddline4,
+					benaddline5,		paydescline1,		paydescline2,	paydescline3,
+					paydescline4,		cntperidtype,		cntperidno,		cntname,
+					cntmobile,			dispaddline1,		dispaddline2,	dispaddline3,
+					dispaddline4,		dispaddline5,		filler1,		filler2,
+					filler3,			filler4,			filler5,		filler6,
+					filler7,			filler8,			filler9,		filler10,
+					signuserid1,		custuserid1,		signuserid2,	custuserid2,
+					signuserid3,		custuserid3,		dispfullname,	dispid,
+					printremark,		failedremarks,		statuscode,		stopstatus,
+					micr,				ppstatus,			clrchqstatus,	clrchqdate,
+					chqissuedate,		crtdate,			crtby,			(SELECT CRTIP FROM VT_COB.CRTBY_LKP_RCP WHERE STATUS='A' AND ROWNUM =1),
+					mdydate,			mdyby,				mdyip,			recordremarks,
+					levelofrejection,	ischqclr,			arabicchqdate,	arabicchqamt,
+					chqstatust24,		parentprnreqid,		parentprnchqid,	ischqnoreq,
+					reprintcount,		rejectedby,			verrejuser1,	verrejdate1,
+					verrejremarks1,		verrejuser2,		verrejdate2,	verrejremarks2,
+					verrejuser3,		verrejdate3,		verrejremarks3,	verrejuser4,
+					verrejdate4,		verrejremarks4,		verrejuser5,	verrejdate5,
+					verrejremarks5,		printholdby,		deleteby,		deleteremarks,
+					printholdusertype
+        FROM
+            migvtsmrcpchqdtls
+            WHERE MIGSTATUSCODE ='P';
+
+    ---------------------------------------------------END VTSMRCPCHQDTLS
+
+    --------------------------------------------------------vtsmrcpauthlogmap
+    INSERT INTO vtsmrcpauthlogmap (authlogid,		debatchid,		custid,		groupcode,
+								   authseqflag,		appby,			appdate,	appstatus,
+								   authdtlsid,		status,			lvseq
+)
+SELECT 	authlogid,		debatchid,		custid,		groupcode,
+		authseqflag,	appby,			appdate,	appstatus,
+		authdtlsid,		status,			lvseq
+FROM migvtsmrcpauthlogmap
+WHERE MIGSTATUSCODE ='P';
+
+
+UPDATE migvtstbatchprcstrn SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtstrcpfileupl SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtstrcpfileuplerr SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtstrcpenrichupl SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtsmrcpenrichdtls SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtstrcpdebatch SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtstrcpsubdebatch SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtsmrcpchqdtls SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+UPDATE migvtsmrcpauthlogmap SET MIGSTATUSCODE= 'S' WHERE MIGSTATUSCODE='P';
+
+COMMIT;
+
+EXCEPTION
+	WHEN NO_DATA_FOUND THEN
+	BEGIN
+		OUT_STATUSCODE :='83';
+		OUT_STATUSDESC :=SQLERRM || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE;
+        DBMS_OUTPUT.PUT_LINE('PROCEDURE COMPLETED AT '||TO_CHAR(SYSDATE,'DD-MM-YY HH24:MI:SS'));
+
+		ROLLBACK;
+        INSERT INTO VT_COB.VTSMERRLOG_RCP(ERRMSG,ERRPROC,ERRDATETIME)
+        SELECT OUT_STATUSDESC,'PRC_TXN_DATAPATCH_RCP',SYSTIMESTAMP FROM dual;
+	END;
+	WHEN OTHERS THEN
+	BEGIN
+		OUT_STATUSCODE :='84';
+		OUT_STATUSDESC := SQLERRM || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE;
+        DBMS_OUTPUT.PUT_LINE('PROCEDURE COMPLETED AT '||TO_CHAR(SYSDATE,'DD-MM-YY HH24:MI:SS'));
+
+		ROLLBACK;
+        INSERT INTO VT_COB.VTSMERRLOG_RCP(ERRMSG,ERRPROC,ERRDATETIME)
+        SELECT OUT_STATUSDESC,'PRC_TXN_DATAPATCH_RCP',SYSTIMESTAMP FROM dual;
+	END;
+
+END PRC_TXN_DATAPATCH_RCP;
+/
